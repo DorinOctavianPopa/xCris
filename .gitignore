@@ -1,0 +1,19 @@
+# Build output
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+
+# Visual Studio / Rider
+.vs/
+.idea/
+
+# NuGet
+*.nupkg
+packages/
+
+# OS generated
+.DS_Store
+Thumbs.db

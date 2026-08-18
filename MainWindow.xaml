@@ -1,0 +1,568 @@
+﻿<Window x:Class="xCris.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        xmlns:local="clr-namespace:xCris"
+        mc:Ignorable="d"
+        Title="xCris Browser" Height="800" Width="1400"
+        WindowStartupLocation="CenterScreen"
+        Background="#1E1E2E">
+
+    <Window.Resources>
+        <!-- Color palette -->
+        <SolidColorBrush x:Key="BgBase"      Color="#1E1E2E"/>
+        <SolidColorBrush x:Key="BgSurface"   Color="#27273A"/>
+        <SolidColorBrush x:Key="BgOverlay"   Color="#2E2E42"/>
+        <SolidColorBrush x:Key="Accent"      Color="#7C6AF7"/>
+        <SolidColorBrush x:Key="AccentHover" Color="#9D8FFF"/>
+        <SolidColorBrush x:Key="TextPrimary" Color="#CDD6F4"/>
+        <SolidColorBrush x:Key="TextMuted"   Color="#6C7086"/>
+        <SolidColorBrush x:Key="BorderColor" Color="#3E3E5C"/>
+        <SolidColorBrush x:Key="Success"     Color="#A6E3A1"/>
+        <SolidColorBrush x:Key="Warning"     Color="#F9E2AF"/>
+        <SolidColorBrush x:Key="Error"       Color="#F38BA8"/>
+
+        <!-- Button base style -->
+        <Style x:Key="NavButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource BgOverlay}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource Accent}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.4"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Accent button -->
+        <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource NavButton}">
+            <Setter Property="Background" Value="{StaticResource Accent}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+
+        <!-- TextBox style -->
+        <Style x:Key="AddressBox" TargetType="TextBox">
+            <Setter Property="Background" Value="{StaticResource BgOverlay}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="CaretBrush" Value="{StaticResource Accent}"/>
+            <Setter Property="SelectionBrush" Value="{StaticResource Accent}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Code TextBox style -->
+        <Style x:Key="CodeBox" TargetType="TextBox" BasedOn="{StaticResource AddressBox}">
+            <Setter Property="FontFamily" Value="Cascadia Code, Consolas, monospace"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="AcceptsReturn" Value="True"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+        </Style>
+
+        <!-- Tab item style -->
+        <Style x:Key="BrowserTab" TargetType="TabItem">
+            <Setter Property="Background" Value="{StaticResource BgSurface}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextMuted}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                CornerRadius="6,6,0,0" Padding="{TemplateBinding Padding}"
+                                Margin="1,4,1,0" MinWidth="100" MaxWidth="200">
+                            <TextBlock x:Name="tb" Text="{TemplateBinding Header}"
+                                       Foreground="{TemplateBinding Foreground}"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource BgOverlay}"/>
+                                <Setter TargetName="tb" Property="Foreground" Value="{StaticResource TextPrimary}"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource BgOverlay}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ListView style -->
+        <Style TargetType="ListView">
+            <Setter Property="Background" Value="{StaticResource BgOverlay}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+
+        <Style TargetType="ListViewItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="Padding" Value="4,2"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource BgSurface}"/>
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{StaticResource Accent}"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- GridSplitter style -->
+        <Style TargetType="GridSplitter">
+            <Setter Property="Background" Value="{StaticResource BorderColor}"/>
+            <Setter Property="ShowsPreview" Value="True"/>
+        </Style>
+
+        <!-- ScrollBar style -->
+        <Style TargetType="ScrollBar">
+            <Setter Property="Background" Value="{StaticResource BgSurface}"/>
+            <Setter Property="Width" Value="8"/>
+        </Style>
+
+        <!-- Label style -->
+        <Style TargetType="Label">
+            <Setter Property="Foreground" Value="{StaticResource TextMuted}"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Padding" Value="0,2"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>   <!-- Toolbar -->
+            <RowDefinition Height="*"/>      <!-- Content -->
+            <RowDefinition Height="Auto"/>   <!-- Status bar -->
+        </Grid.RowDefinitions>
+
+        <!-- ===== TOOLBAR ===== -->
+        <Border Grid.Row="0" Background="{StaticResource BgSurface}"
+                BorderBrush="{StaticResource BorderColor}" BorderThickness="0,0,0,1">
+            <Grid Margin="8,6">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Tabs row -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,4">
+                    <TextBlock Text="xCris" FontSize="16" FontWeight="Bold"
+                               Foreground="{StaticResource Accent}" VerticalAlignment="Center"
+                               Margin="0,0,16,0"/>
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                                  MaxWidth="900">
+                        <StackPanel x:Name="TabStrip" Orientation="Horizontal"/>
+                    </ScrollViewer>
+                    <Button x:Name="BtnNewTab" Content="+" Style="{StaticResource NavButton}"
+                            Width="32" Height="28" Click="BtnNewTab_Click"
+                            ToolTip="New Tab (Ctrl+T)" Margin="4,0,0,0"/>
+                </StackPanel>
+
+                <!-- Navigation row -->
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Nav buttons -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                        <Button x:Name="BtnBack" Content="&#9664;" Style="{StaticResource NavButton}"
+                                Width="32" Height="30" Click="BtnBack_Click" ToolTip="Back"/>
+                        <Button x:Name="BtnForward" Content="&#9654;" Style="{StaticResource NavButton}"
+                                Width="32" Height="30" Click="BtnForward_Click" ToolTip="Forward"/>
+                        <Button x:Name="BtnRefresh" Content="&#8635;" Style="{StaticResource NavButton}"
+                                Width="32" Height="30" Click="BtnRefresh_Click" ToolTip="Refresh"/>
+                        <Button x:Name="BtnHome" Content="⌂" Style="{StaticResource NavButton}"
+                                Width="32" Height="30" Click="BtnHome_Click" ToolTip="Home"/>
+                    </StackPanel>
+
+                    <!-- Address bar -->
+                    <TextBox x:Name="TxtAddress" Grid.Column="1" Style="{StaticResource AddressBox}"
+                             Height="30" Margin="8,0"
+                             KeyDown="TxtAddress_KeyDown"
+                             VerticalContentAlignment="Center"
+                             Text="https://www.google.com"/>
+
+                    <!-- Loading indicator -->
+                    <Border Grid.Column="2" Width="30" Height="30" CornerRadius="15"
+                            x:Name="LoadingIndicator" Visibility="Collapsed">
+                        <Border.Background>
+                            <RadialGradientBrush>
+                                <GradientStop Color="#7C6AF7" Offset="0"/>
+                                <GradientStop Color="Transparent" Offset="1"/>
+                            </RadialGradientBrush>
+                        </Border.Background>
+                        <Border.RenderTransform>
+                            <RotateTransform x:Name="SpinTransform"/>
+                        </Border.RenderTransform>
+                        <Border.Triggers>
+                            <EventTrigger RoutedEvent="Border.Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard RepeatBehavior="Forever">
+                                        <DoubleAnimation Storyboard.TargetName="SpinTransform"
+                                                         Storyboard.TargetProperty="Angle"
+                                                         From="0" To="360" Duration="0:0:1"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </Border.Triggers>
+                    </Border>
+
+                    <!-- Side panel toggle -->
+                    <Button Grid.Column="3" Content="⚙ DOM" Style="{StaticResource AccentButton}"
+                            Height="30" Padding="10,4" Click="BtnTogglePanel_Click"
+                            ToolTip="Toggle DOM Control Panel (F12)"/>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- ===== MAIN CONTENT ===== -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="400"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition x:Name="SidePanelColumn" Width="420" MinWidth="300"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- WebView2 container -->
+            <Border Grid.Column="0" Background="#000000">
+                <wv2:WebView2 x:Name="WebView"
+                              NavigationStarting="WebView_NavigationStarting"
+                              NavigationCompleted="WebView_NavigationCompleted"
+                              CoreWebView2InitializationCompleted="WebView_CoreWebView2InitializationCompleted"/>
+            </Border>
+
+            <!-- Splitter -->
+            <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Center"
+                          VerticalAlignment="Stretch" ResizeBehavior="PreviousAndNext"/>
+
+            <!-- ===== SIDE PANEL ===== -->
+            <Border Grid.Column="2" Background="{StaticResource BgSurface}"
+                    BorderBrush="{StaticResource BorderColor}" BorderThickness="1,0,0,0">
+                <TabControl Background="{StaticResource BgSurface}"
+                            BorderThickness="0"
+                            TabStripPlacement="Top">
+                    <TabControl.Resources>
+                        <Style TargetType="TabItem" BasedOn="{StaticResource BrowserTab}"/>
+                    </TabControl.Resources>
+
+                    <!-- DOM Explorer Tab -->
+                    <TabItem Header="DOM Explorer">
+                        <Grid Margin="8">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="200" MinHeight="80"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*" MinHeight="80"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Query selector -->
+                            <Label Grid.Row="0" Content="CSS Selector / XPath Query"/>
+                            <Grid Grid.Row="1" Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="TxtSelector" Style="{StaticResource AddressBox}"
+                                         Height="30" Text="*"
+                                         KeyDown="TxtSelector_KeyDown"/>
+                                <Button Grid.Column="1" Content="Query" Style="{StaticResource AccentButton}"
+                                        Height="30" Margin="6,0,0,0" Click="BtnQuery_Click"/>
+                            </Grid>
+
+                            <!-- Results list -->
+                            <ListView x:Name="LvElements" Grid.Row="2"
+                                      SelectionChanged="LvElements_SelectionChanged">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="Tag" Width="60"
+                                                        DisplayMemberBinding="{Binding TagName}"/>
+                                        <GridViewColumn Header="#id" Width="80"
+                                                        DisplayMemberBinding="{Binding Id}"/>
+                                        <GridViewColumn Header=".class" Width="110"
+                                                        DisplayMemberBinding="{Binding ClassName}"/>
+                                        <GridViewColumn Header="Text" Width="100"
+                                                        DisplayMemberBinding="{Binding InnerText}"/>
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+
+                            <!-- Splitter -->
+                            <GridSplitter Grid.Row="3" Height="4" HorizontalAlignment="Stretch"
+                                          VerticalAlignment="Center" Margin="0,2"/>
+
+                            <!-- Element property editor -->
+                            <Grid Grid.Row="4">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="70"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Label Grid.Row="0" Grid.ColumnSpan="2" Content="▸ Selected Element Properties"
+                                       FontWeight="SemiBold" Foreground="{StaticResource Accent}"/>
+
+                                <Label Grid.Row="1" Grid.Column="0" Content="Selector"/>
+                                <TextBox x:Name="TxtElemSelector" Grid.Row="1" Grid.Column="1"
+                                         Style="{StaticResource AddressBox}" Height="26" IsReadOnly="True"
+                                         Foreground="{StaticResource TextMuted}"/>
+
+                                <Label Grid.Row="2" Grid.Column="0" Content="ID"/>
+                                <TextBox x:Name="TxtElemId" Grid.Row="2" Grid.Column="1"
+                                         Style="{StaticResource AddressBox}" Height="26" Margin="0,2"/>
+
+                                <Label Grid.Row="3" Grid.Column="0" Content="Class"/>
+                                <TextBox x:Name="TxtElemClass" Grid.Row="3" Grid.Column="1"
+                                         Style="{StaticResource AddressBox}" Height="26" Margin="0,2"/>
+
+                                <Label Grid.Row="4" Grid.Column="0" Content="Text"/>
+                                <TextBox x:Name="TxtElemText" Grid.Row="4" Grid.Column="1"
+                                         Style="{StaticResource AddressBox}" Height="26" Margin="0,2"/>
+
+                                <Label Grid.Row="5" Grid.Column="0" Content="HTML"/>
+                                <TextBox x:Name="TxtElemHtml" Grid.Row="5" Grid.Column="1"
+                                         Style="{StaticResource CodeBox}" Height="52" Margin="0,2"/>
+
+                                <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2"
+                                            Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
+                                    <Button Content="Apply Changes" Style="{StaticResource AccentButton}"
+                                            Height="28" Margin="0,0,6,0" Click="BtnApplyElement_Click"/>
+                                    <Button Content="Remove" Style="{StaticResource NavButton}"
+                                            Height="28" Foreground="{StaticResource Error}"
+                                            Click="BtnRemoveElement_Click"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Refresh DOM button -->
+                            <Button Grid.Row="5" Content="🔄 Refresh DOM" Style="{StaticResource NavButton}"
+                                    Height="28" HorizontalAlignment="Left" Click="BtnRefreshDom_Click"
+                                    Margin="0,4,0,0"/>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- JavaScript Console Tab -->
+                    <TabItem Header="JS Console">
+                        <Grid Margin="8">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="120"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Output -->
+                            <TextBox x:Name="TxtConsoleOutput" Grid.Row="0"
+                                     Style="{StaticResource CodeBox}"
+                                     IsReadOnly="True" VerticalScrollBarVisibility="Auto"
+                                     Background="{StaticResource BgBase}"
+                                     Text="// Console output will appear here..."/>
+
+                            <Label Grid.Row="1" Content="JavaScript Input"/>
+
+                            <!-- Input -->
+                            <TextBox x:Name="TxtJsInput" Grid.Row="2"
+                                     Style="{StaticResource CodeBox}"
+                                     Text="// Type JavaScript here and click Run&#10;document.title"/>
+
+                            <StackPanel Grid.Row="3" Orientation="Horizontal"
+                                        HorizontalAlignment="Right" Margin="0,6,0,0">
+                                <Button Content="Clear" Style="{StaticResource NavButton}"
+                                        Height="28" Margin="0,0,6,0" Click="BtnConsoleClear_Click"/>
+                                <Button Content="▶ Run" Style="{StaticResource AccentButton}"
+                                        Height="28" Click="BtnRunJs_Click"/>
+                            </StackPanel>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- Events Tab -->
+                    <TabItem Header="Events">
+                        <Grid Margin="8">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <Label Grid.Row="0" Content="Listen to DOM Events from the Page"/>
+
+                            <!-- Event type selector -->
+                            <WrapPanel Grid.Row="1" Margin="0,0,0,6">
+                                <CheckBox x:Name="ChkClick" Content="click" IsChecked="True"
+                                          Foreground="{StaticResource TextPrimary}" Margin="0,0,10,4"
+                                          Checked="EventCheckBox_Changed" Unchecked="EventCheckBox_Changed"/>
+                                <CheckBox x:Name="ChkChange" Content="change" IsChecked="True"
+                                          Foreground="{StaticResource TextPrimary}" Margin="0,0,10,4"
+                                          Checked="EventCheckBox_Changed" Unchecked="EventCheckBox_Changed"/>
+                                <CheckBox x:Name="ChkInput" Content="input" IsChecked="False"
+                                          Foreground="{StaticResource TextPrimary}" Margin="0,0,10,4"
+                                          Checked="EventCheckBox_Changed" Unchecked="EventCheckBox_Changed"/>
+                                <CheckBox x:Name="ChkSubmit" Content="submit" IsChecked="False"
+                                          Foreground="{StaticResource TextPrimary}" Margin="0,0,10,4"
+                                          Checked="EventCheckBox_Changed" Unchecked="EventCheckBox_Changed"/>
+                                <CheckBox x:Name="ChkKeydown" Content="keydown" IsChecked="False"
+                                          Foreground="{StaticResource TextPrimary}" Margin="0,0,10,4"
+                                          Checked="EventCheckBox_Changed" Unchecked="EventCheckBox_Changed"/>
+                                <CheckBox x:Name="ChkScroll" Content="scroll" IsChecked="False"
+                                          Foreground="{StaticResource TextPrimary}" Margin="0,0,10,4"
+                                          Checked="EventCheckBox_Changed" Unchecked="EventCheckBox_Changed"/>
+                                <CheckBox x:Name="ChkLoad" Content="load" IsChecked="True"
+                                          Foreground="{StaticResource TextPrimary}" Margin="0,0,10,4"
+                                          Checked="EventCheckBox_Changed" Unchecked="EventCheckBox_Changed"/>
+                            </WrapPanel>
+
+                            <!-- Event log -->
+                            <ListView x:Name="LvEvents" Grid.Row="2">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="Time" Width="70"
+                                                        DisplayMemberBinding="{Binding FormattedTimestamp}"/>
+                                        <GridViewColumn Header="Event" Width="70"
+                                                        DisplayMemberBinding="{Binding EventType}"/>
+                                        <GridViewColumn Header="Target" Width="110"
+                                                        DisplayMemberBinding="{Binding TargetSelector}"/>
+                                        <GridViewColumn Header="Detail" Width="120"
+                                                        DisplayMemberBinding="{Binding Detail}"/>
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+
+                            <StackPanel Grid.Row="3" Orientation="Horizontal"
+                                        HorizontalAlignment="Right" Margin="0,6,0,0">
+                                <Button Content="Clear Events" Style="{StaticResource NavButton}"
+                                        Height="28" Click="BtnClearEvents_Click"/>
+                            </StackPanel>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- Style Inspector Tab -->
+                    <TabItem Header="Styles">
+                        <Grid Margin="8">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <Label Grid.Row="0" Content="Inspect / Modify Computed Styles"/>
+
+                            <Grid Grid.Row="1" Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="TxtStyleSelector" Style="{StaticResource AddressBox}"
+                                         Height="30" Text="body"/>
+                                <Button Grid.Column="1" Content="Inspect" Style="{StaticResource AccentButton}"
+                                        Height="30" Margin="6,0,0,0" Click="BtnInspectStyles_Click"/>
+                            </Grid>
+
+                            <TextBox x:Name="TxtStylesOutput" Grid.Row="2"
+                                     Style="{StaticResource CodeBox}"
+                                     IsReadOnly="True" VerticalScrollBarVisibility="Auto"
+                                     Background="{StaticResource BgBase}"
+                                     Text="// Styles will appear here..."/>
+
+                            <Label Grid.Row="3" Content="Apply CSS Rule (selector { property: value; })"/>
+                            <TextBox x:Name="TxtCssInput" Grid.Row="4"
+                                     Style="{StaticResource CodeBox}" Height="60"
+                                     Text="body { background: #1a1a2e !important; color: #e0e0e0 !important; }"/>
+
+                            <StackPanel Grid.Row="5" Orientation="Horizontal"
+                                        HorizontalAlignment="Right" Margin="0,6,0,0">
+                                <Button Content="Inject CSS" Style="{StaticResource AccentButton}"
+                                        Height="28" Click="BtnInjectCss_Click"/>
+                            </StackPanel>
+                        </Grid>
+                    </TabItem>
+                </TabControl>
+            </Border>
+        </Grid>
+
+        <!-- ===== STATUS BAR ===== -->
+        <Border Grid.Row="2" Background="{StaticResource BgSurface}"
+                BorderBrush="{StaticResource BorderColor}" BorderThickness="0,1,0,0">
+            <Grid Margin="12,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="TxtStatus" Grid.Column="0"
+                           Foreground="{StaticResource TextMuted}" FontSize="11"
+                           VerticalAlignment="Center" Text="Ready"/>
+                <TextBlock x:Name="TxtSecure" Grid.Column="1"
+                           Foreground="{StaticResource Success}" FontSize="11"
+                           VerticalAlignment="Center" Margin="12,0" Text="🔒 Secure"/>
+                <TextBlock x:Name="TxtEventCount" Grid.Column="2"
+                           Foreground="{StaticResource Accent}" FontSize="11"
+                           VerticalAlignment="Center" Text="Events: 0"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
