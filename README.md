@@ -20,6 +20,7 @@
   - [DOM Explorer](#dom-explorer)
   - [JavaScript Console](#javascript-console)
   - [Event Monitor](#event-monitor)
+  - [Automation Bindings](#automation-bindings)
   - [Keyboard Shortcuts](#keyboard-shortcuts)
 - [Models](#models)
 - [Dependencies](#dependencies)
@@ -38,6 +39,7 @@
 | **DOM Explorer** | Query any CSS selector, view matched elements, and live-edit their `id`, `class`, `innerText`, or `innerHTML`. |
 | **JavaScript Console** | Write and execute arbitrary JavaScript in the context of the active page; output is shown inline. |
 | **Event Monitor** | Capture page-level DOM events (`click`, `change`, `input`, `submit`, `keydown`, `scroll`, `load`) and `console.log`/`warn`/`error` messages through a bidirectional WebView2 message bridge. |
+| **Automation bindings** | Configure page element selectors, events, and optional property filters to trigger xCris commands, execute JavaScript in the page, or launch external programs. |
 | **Toggleable side panel** | The developer panel can be hidden/shown at any time without reloading the page. |
 | **Dark theme UI** | A modern Catppuccin-inspired dark colour palette throughout. |
 
@@ -99,10 +101,13 @@ xCris/
 ├── App.xaml              # WPF application entry point
 ├── App.xaml.cs           # Application startup logic
 ├── MainWindow.xaml       # Main window layout (browser + developer panel)
-├── MainWindow.xaml.cs    # All UI logic: navigation, tabs, DOM, console, events
+├── MainWindow.xaml.cs    # UI logic: navigation, tabs, DOM, console, events, automation
+├── AutomationConfigWindow.xaml    # Automation binding editor window
+├── AutomationConfigWindow.xaml.cs # Automation editor logic
 ├── AssemblyInfo.cs       # Assembly metadata
 ├── xCris.csproj          # SDK-style project file (.NET 9 / WPF)
 └── Models/
+    ├── AutomationBinding.cs # Configurable browser automation rule
     ├── BrowserTab.cs     # Model for a browser tab (title, URL, loading state)
     ├── DomElement.cs     # Model for a queried DOM element
     └── PageEvent.cs      # Model for a captured page event
@@ -148,6 +153,59 @@ xCris/
 3. Events are captured via a JavaScript bridge injected into the page after each navigation and streamed back to the event list in real time.
 4. Each entry shows the event type, target selector, detail, and a precise timestamp.
 
+### Automation Bindings
+
+1. Click **⚡ Automation** in the toolbar to open the dedicated configuration window.
+2. Add a binding and configure:
+   - **Selector** — CSS selector to match the clicked/changed element (examples: `button`, `a`, `#save`, `.nav-link`)
+   - **Event** — DOM event to listen for (`click`, `change`, `input`, `submit`, `keydown`, `scroll`, `load`)
+   - **Property / Contains** — optional element property or attribute filter such as `href`, `innerText`, `className`, `id`, `value`, `src`, or `title`
+   - **Action Type** — `ApplicationCommand`, `ExecuteJavaScript`, or `RunProgram`
+   - **Action / Target** — the command name, executable path, or JavaScript target
+   - **Argument / JS** — optional argument string or JavaScript snippet
+3. Click **Save**. Bindings are stored locally in `%LocalAppData%\xCris\automation-bindings.json`.
+4. After the next matching page event, xCris executes the configured action without modifying the web page source.
+
+#### Supported application commands
+
+- `ShowMessage`
+- `TogglePanel`
+- `RefreshPage`
+- `GoBack`
+- `GoForward`
+- `GoHome`
+- `ClearEvents`
+- `QueryDom`
+- `Navigate`
+
+#### Supported placeholders
+
+You can use placeholders in **arguments** and JavaScript snippets:
+
+- `{selector}`
+- `{eventType}`
+- `{propertyName}`
+- `{matchedValue}`
+- `{text}`
+- `{href}`
+
+For JavaScript-safe string injection, use the JSON-escaped variants:
+
+- `{selectorJson}`
+- `{eventTypeJson}`
+- `{propertyNameJson}`
+- `{matchedValueJson}`
+- `{textJson}`
+- `{hrefJson}`
+
+#### Example bindings
+
+| Goal | Selector | Event | Property | Contains | Action Type | Action / Target | Argument / JS |
+|---|---|---|---|---|---|---|---|
+| Show an app dialog when a save button is clicked | `button.save` | `click` | `innerText` | `Save` | `ApplicationCommand` | `ShowMessage` | `Clicked {text}` |
+| Run a local helper app for matched links | `a` | `click` | `href` | `invoice` | `RunProgram` | `C:\Tools\InvoiceHandler.exe` | `--url \"{href}\"` |
+| Call a function inside the loaded web app | `a.help` | `click` |  |  | `ExecuteJavaScript` |  | `window.showHelpForLink && window.showHelpForLink({hrefJson});` |
+
 ### Keyboard Shortcuts
 
 | Shortcut | Action |
@@ -172,6 +230,10 @@ Represents a DOM node returned by a CSS selector query. Properties: `TagName`, `
 ### `PageEvent`
 
 Represents a page event captured by the JavaScript bridge. Properties: `EventType`, `TargetSelector`, `Detail`, `Timestamp`. The `FormattedTimestamp` property returns a human-readable `HH:mm:ss.fff` string.
+
+### `AutomationBinding`
+
+Represents a configurable automation rule. Properties include `Selector`, `EventType`, optional `PropertyName`/`PropertyValue` filters, and the target action metadata used to call xCris commands, page JavaScript, or external programs.
 
 ---
 

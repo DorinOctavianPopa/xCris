@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
-using System.Text;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
@@ -19,6 +21,7 @@ namespace xCris
         private bool _webViewReady;
         private readonly ObservableCollection<DomElement> _elements = new();
         private readonly ObservableCollection<PageEvent> _pageEvents = new();
+        private readonly ObservableCollection<AutomationBinding> _automationBindings = new();
         private DomElement? _selectedElement;
 
         // Tracks tabs: key = button, value = (url, title)
@@ -26,6 +29,17 @@ namespace xCris
         private int _activeTabIndex = -1;
 
         private record TabEntry(Button Button, string Title, string Url);
+        private sealed record AutomationTrigger(
+            string BindingName,
+            string EventType,
+            string TargetSelector,
+            string PropertyName,
+            string MatchedValue,
+            string ActionType,
+            string ActionTarget,
+            string ActionArgument,
+            string Text,
+            string Href);
 
         // ── Constructor ────────────────────────────────────────────────────────
         public MainWindow()
@@ -33,6 +47,7 @@ namespace xCris
             InitializeComponent();
             LvElements.ItemsSource = _elements;
             LvEvents.ItemsSource = _pageEvents;
+            LoadAutomationBindings();
 
             // Keyboard shortcuts
             KeyDown += MainWindow_KeyDown;
@@ -204,6 +219,27 @@ namespace xCris
             }
         }
 
+        private async void BtnAutomationConfig_Click(object sender, RoutedEventArgs e)
+        {
+            var window = new AutomationConfigWindow(_automationBindings)
+            {
+                Owner = this
+            };
+
+            if (window.ShowDialog() != true)
+                return;
+
+            _automationBindings.Clear();
+            foreach (var binding in window.SavedBindings)
+                _automationBindings.Add(binding.Clone());
+
+            SaveAutomationBindings();
+            SetStatus($"Saved {_automationBindings.Count} automation binding(s)");
+
+            if (_webViewReady)
+                await InjectEventListenersAsync();
+        }
+
         // ── Keyboard shortcuts ─────────────────────────────────────────────────
         private void MainWindow_KeyDown(object sender, KeyEventArgs e)
         {
@@ -373,8 +409,30 @@ namespace xCris
         {
             if (!_webViewReady) return;
 
-            var events = BuildEnabledEventsList();
-            // Always inject console bridge
+            var monitoredEvents = BuildEnabledEventsList();
+            var automationBindings = _automationBindings
+                .Where(binding => binding.IsEnabled && !string.IsNullOrWhiteSpace(binding.EventType))
+                .Select(binding => new
+                {
+                    name = binding.Name,
+                    selector = binding.Selector,
+                    eventType = binding.EventType,
+                    propertyName = binding.PropertyName,
+                    propertyValue = binding.PropertyValue,
+                    actionType = binding.ActionType,
+                    actionTarget = binding.ActionTarget,
+                    actionArgument = binding.ActionArgument
+                })
+                .ToList();
+
+            var events = monitoredEvents
+                .Concat(automationBindings.Select(binding => binding.eventType))
+                .Where(evt => !string.IsNullOrWhiteSpace(evt))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var monitoredEventsJson = JsonSerializer.Serialize(monitoredEvents);
+            var automationBindingsJson = JsonSerializer.Serialize(automationBindings);
             var eventsJson = JsonSerializer.Serialize(events);
             var js = $@"
 (function() {{
@@ -390,23 +448,84 @@ namespace xCris
             }};
         }});
     }}
+    window.__xCrisMonitoredEvents = {monitoredEventsJson};
+    window.__xCrisAutomationBindings = {automationBindingsJson};
     // DOM event listeners
     window.__xCrisListeners = window.__xCrisListeners || {{}};
+    function xCrisSelectorSummary(target) {{
+        if (!(target instanceof Element)) return '';
+        if (target.id) return '#' + target.id;
+        if (target.className && typeof target.className === 'string') return '.' + target.className.split(' ').join('.');
+        return (target.tagName || '').toLowerCase();
+    }}
+    function xCrisPropertyValue(target, propertyName) {{
+        if (!(target instanceof Element) || !propertyName) return '';
+        var name = String(propertyName).toLowerCase();
+        switch (name) {{
+            case 'id': return target.id || '';
+            case 'classname':
+            case 'class': return target.className || '';
+            case 'innertext':
+            case 'text':
+            case 'textcontent': return target.innerText || target.textContent || '';
+            case 'innerhtml':
+            case 'html': return target.innerHTML || '';
+            case 'href': return target.getAttribute('href') || target.href || '';
+            case 'value': return target.value || '';
+            case 'name': return target.getAttribute('name') || '';
+            case 'tag':
+            case 'tagname': return target.tagName || '';
+            case 'src': return target.getAttribute('src') || target.src || '';
+            case 'title': return target.getAttribute('title') || '';
+            default:
+                try {{
+                    var direct = target[propertyName];
+                    if (direct != null) return String(direct);
+                }} catch (_) {{}}
+                return target.getAttribute(propertyName) || '';
+        }}
+    }}
     var evts = {eventsJson};
     evts.forEach(function(evt) {{
         if (window.__xCrisListeners[evt]) return;
         window.__xCrisListeners[evt] = true;
         document.addEventListener(evt, function(e) {{
-            var sel = '';
-            try {{
-                var t = e.target;
-                sel = t ? (t.id ? '#' + t.id : (t.className ? '.' + t.className.split(' ').join('.') : t.tagName)) : '';
-            }} catch(_) {{}}
-            window.chrome.webview.postMessage(JSON.stringify({{
-                type: evt,
-                target: sel,
-                detail: e.detail != null ? String(e.detail) : ''
-            }}));
+            var source = e.target instanceof Element ? e.target : document.documentElement;
+            if ((window.__xCrisMonitoredEvents || []).indexOf(evt) >= 0) {{
+                window.chrome.webview.postMessage(JSON.stringify({{
+                    type: evt,
+                    target: xCrisSelectorSummary(source),
+                    detail: e.detail != null ? String(e.detail) : ''
+                }}));
+            }}
+            (window.__xCrisAutomationBindings || []).forEach(function(binding) {{
+                if (!binding || String(binding.eventType || '').toLowerCase() !== String(evt).toLowerCase()) return;
+                var matched = source;
+                if (binding.selector && source instanceof Element) {{
+                    try {{
+                        matched = source.matches(binding.selector) ? source : source.closest(binding.selector);
+                    }} catch (_) {{
+                        matched = null;
+                    }}
+                }}
+                if (!matched && binding.selector) return;
+                if (!matched) matched = document.documentElement;
+                var propertyValue = xCrisPropertyValue(matched, binding.propertyName);
+                if (binding.propertyValue && propertyValue.indexOf(binding.propertyValue) === -1) return;
+                window.chrome.webview.postMessage(JSON.stringify({{
+                    type: '__automation__',
+                    bindingName: binding.name || '',
+                    eventType: evt,
+                    target: xCrisSelectorSummary(matched),
+                    propertyName: binding.propertyName || '',
+                    matchedValue: propertyValue,
+                    actionType: binding.actionType || '',
+                    actionTarget: binding.actionTarget || '',
+                    actionArgument: binding.actionArgument || '',
+                    text: matched.innerText || matched.textContent || '',
+                    href: xCrisPropertyValue(matched, 'href')
+                }}));
+            }});
         }}, true);
     }});
 }})()";
@@ -444,6 +563,23 @@ namespace xCris
                     var level = root.GetProperty("level").GetString() ?? "log";
                     var msg   = root.GetProperty("detail").GetString() ?? "";
                     Dispatcher.Invoke(() => AppendConsole($"[{level.ToUpperInvariant()}] {msg}\n"));
+                    return;
+                }
+
+                if (type == "__automation__")
+                {
+                    var trigger = new AutomationTrigger(
+                        root.GetProperty("bindingName").GetString() ?? "",
+                        root.GetProperty("eventType").GetString() ?? "",
+                        root.GetProperty("target").GetString() ?? "",
+                        root.GetProperty("propertyName").GetString() ?? "",
+                        root.GetProperty("matchedValue").GetString() ?? "",
+                        root.GetProperty("actionType").GetString() ?? "",
+                        root.GetProperty("actionTarget").GetString() ?? "",
+                        root.GetProperty("actionArgument").GetString() ?? "",
+                        root.GetProperty("text").GetString() ?? "",
+                        root.GetProperty("href").GetString() ?? "");
+                    _ = ExecuteAutomationAsync(trigger);
                     return;
                 }
 
@@ -556,6 +692,198 @@ namespace xCris
             }
             return raw;
         }
+
+        private async Task ExecuteAutomationAsync(AutomationTrigger trigger)
+        {
+            var actionType = trigger.ActionType.Trim();
+
+            switch (actionType.ToLowerInvariant())
+            {
+                case "runprogram":
+                    RunExternalProgram(trigger.ActionTarget.Trim(), ResolveTemplate(trigger.ActionArgument, trigger));
+                    break;
+
+                case "executejavascript":
+                    var js = ResolveTemplate(trigger.ActionArgument, trigger);
+                    if (string.IsNullOrWhiteSpace(js))
+                        js = ResolveTemplate(trigger.ActionTarget, trigger);
+
+                    var result = await ExecuteScriptSafeAsync(js);
+                    SetStatus($"Automation '{trigger.BindingName}' executed JavaScript");
+                    if (result is not null)
+                        AppendConsole($"[AUTOMATION] {trigger.BindingName}: {UnwrapJsonString(result)}\n");
+                    break;
+
+                case "applicationcommand":
+                    await ExecuteApplicationCommandAsync(trigger.ActionTarget.Trim(), ResolveTemplate(trigger.ActionArgument, trigger), trigger);
+                    break;
+
+                default:
+                    AppendConsole($"[AUTOMATION] Unsupported action type '{trigger.ActionType}'\n");
+                    break;
+            }
+        }
+
+        private void RunExternalProgram(string fileName, string arguments)
+        {
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                AppendConsole("[AUTOMATION] External program path is empty.\n");
+                return;
+            }
+
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = fileName,
+                    Arguments = arguments,
+                    UseShellExecute = false
+                });
+                SetStatus($"Automation launched: {Path.GetFileName(fileName)}");
+            }
+            catch (Exception ex)
+            {
+                AppendConsole($"[AUTOMATION] Launch failed: {ex.Message}\n");
+            }
+        }
+
+        private async Task ExecuteApplicationCommandAsync(string command, string argument, AutomationTrigger trigger)
+        {
+            switch (command.ToLowerInvariant())
+            {
+                case "togglepanel":
+                    BtnTogglePanel_Click(this, new RoutedEventArgs());
+                    SetStatus($"Automation '{trigger.BindingName}' toggled the panel");
+                    break;
+
+                case "refreshpage":
+                    BtnRefresh_Click(this, new RoutedEventArgs());
+                    SetStatus($"Automation '{trigger.BindingName}' refreshed the page");
+                    break;
+
+                case "goback":
+                    BtnBack_Click(this, new RoutedEventArgs());
+                    SetStatus($"Automation '{trigger.BindingName}' navigated back");
+                    break;
+
+                case "goforward":
+                    BtnForward_Click(this, new RoutedEventArgs());
+                    SetStatus($"Automation '{trigger.BindingName}' navigated forward");
+                    break;
+
+                case "gohome":
+                    BtnHome_Click(this, new RoutedEventArgs());
+                    SetStatus($"Automation '{trigger.BindingName}' navigated home");
+                    break;
+
+                case "clearevents":
+                    BtnClearEvents_Click(this, new RoutedEventArgs());
+                    SetStatus($"Automation '{trigger.BindingName}' cleared events");
+                    break;
+
+                case "querydom":
+                    var selector = string.IsNullOrWhiteSpace(argument) ? trigger.TargetSelector : argument;
+                    if (!string.IsNullOrWhiteSpace(selector))
+                    {
+                        await QueryDomAsync(selector);
+                        SetStatus($"Automation '{trigger.BindingName}' queried '{selector}'");
+                    }
+                    break;
+
+                case "navigate":
+                    var url = string.IsNullOrWhiteSpace(argument) ? trigger.Href : argument;
+                    if (!string.IsNullOrWhiteSpace(url))
+                    {
+                        NavigateTo(url);
+                        SetStatus($"Automation '{trigger.BindingName}' navigated to {url}");
+                    }
+                    break;
+
+                case "showmessage":
+                    var message = string.IsNullOrWhiteSpace(argument)
+                        ? $"Triggered automation '{trigger.BindingName}' for {trigger.TargetSelector}"
+                        : argument;
+                    MessageBox.Show(this, message, "xCris Automation", MessageBoxButton.OK, MessageBoxImage.Information);
+                    SetStatus($"Automation '{trigger.BindingName}' displayed a message");
+                    break;
+
+                default:
+                    AppendConsole($"[AUTOMATION] Unsupported application command '{command}'\n");
+                    break;
+            }
+        }
+
+        private static string ResolveTemplate(string template, AutomationTrigger trigger)
+        {
+            if (string.IsNullOrEmpty(template))
+                return string.Empty;
+
+            var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["selector"] = trigger.TargetSelector,
+                ["eventType"] = trigger.EventType,
+                ["propertyName"] = trigger.PropertyName,
+                ["matchedValue"] = trigger.MatchedValue,
+                ["text"] = trigger.Text,
+                ["href"] = trigger.Href
+            };
+
+            var resolved = template;
+            foreach (var pair in values)
+            {
+                resolved = resolved.Replace("{" + pair.Key + "}", pair.Value ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+                resolved = resolved.Replace("{" + pair.Key + "Json}", JsonSerializer.Serialize(pair.Value ?? string.Empty), StringComparison.OrdinalIgnoreCase);
+            }
+
+            return resolved;
+        }
+
+        private void LoadAutomationBindings()
+        {
+            try
+            {
+                var path = GetAutomationBindingsPath();
+                if (!File.Exists(path))
+                    return;
+
+                var json = File.ReadAllText(path);
+                var items = JsonSerializer.Deserialize<List<AutomationBinding>>(json);
+                if (items is null)
+                    return;
+
+                foreach (var binding in items)
+                    _automationBindings.Add(binding);
+            }
+            catch
+            {
+                // Ignore malformed local configuration files
+            }
+        }
+
+        private void SaveAutomationBindings()
+        {
+            try
+            {
+                var path = GetAutomationBindingsPath();
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                var json = JsonSerializer.Serialize(_automationBindings, new JsonSerializerOptions
+                {
+                    WriteIndented = true
+                });
+                File.WriteAllText(path, json);
+            }
+            catch (Exception ex)
+            {
+                AppendConsole($"[AUTOMATION] Failed to save bindings: {ex.Message}\n");
+            }
+        }
+
+        private static string GetAutomationBindingsPath() =>
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "xCris",
+                "automation-bindings.json");
 
         private void SetStatus(string message) => TxtStatus.Text = message;
     }

@@ -214,6 +214,7 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
                     <!-- Nav buttons -->
@@ -260,8 +261,13 @@
                         </Border.Triggers>
                     </Border>
 
+                    <Button Grid.Column="3" Content="⚡ Automation" Style="{StaticResource NavButton}"
+                            Height="30" Padding="10,4" Margin="8,0,0,0"
+                            Click="BtnAutomationConfig_Click"
+                            ToolTip="Open automation configuration"/>
+
                     <!-- Side panel toggle -->
-                    <Button Grid.Column="3" Content="⚙ DOM" Style="{StaticResource AccentButton}"
+                    <Button Grid.Column="4" Content="⚙ DOM" Style="{StaticResource AccentButton}"
                             Height="30" Padding="10,4" Click="BtnTogglePanel_Click"
                             ToolTip="Toggle DOM Control Panel (F12)"/>
                 </Grid>

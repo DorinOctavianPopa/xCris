@@ -1,0 +1,75 @@
+<Window x:Class="xCris.AutomationConfigWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        Title="Automation Configuration"
+        Height="620"
+        Width="1200"
+        MinHeight="420"
+        MinWidth="960"
+        WindowStartupLocation="CenterOwner">
+    <Window.Resources>
+        <x:Array x:Key="EventTypes" Type="{x:Type sys:String}">
+            <sys:String>click</sys:String>
+            <sys:String>change</sys:String>
+            <sys:String>input</sys:String>
+            <sys:String>submit</sys:String>
+            <sys:String>keydown</sys:String>
+            <sys:String>scroll</sys:String>
+            <sys:String>load</sys:String>
+        </x:Array>
+        <x:Array x:Key="ActionTypes" Type="{x:Type sys:String}">
+            <sys:String>ApplicationCommand</sys:String>
+            <sys:String>ExecuteJavaScript</sys:String>
+            <sys:String>RunProgram</sys:String>
+        </x:Array>
+    </Window.Resources>
+
+    <DockPanel Margin="12">
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+            <TextBlock FontSize="18" FontWeight="SemiBold" Text="Browser Automation Bindings"/>
+            <TextBlock Margin="0,4,0,0" TextWrapping="Wrap">
+                Map page elements, events, and optional property filters to xCris commands, JavaScript, or external programs.
+                Supported tokens in arguments/code: {selector}, {eventType}, {matchedValue}, {text}, {href}, plus JSON-safe forms like {textJson}.
+            </TextBlock>
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+            <Button Width="88" Margin="0,0,8,0" Click="BtnAdd_Click">Add</Button>
+            <Button Width="88" Margin="0,0,8,0" Click="BtnRemove_Click">Remove</Button>
+            <Button Width="88" Margin="0,0,8,0" Click="BtnSave_Click">Save</Button>
+            <Button Width="88" IsCancel="True">Close</Button>
+        </StackPanel>
+
+        <DataGrid x:Name="DgBindings"
+                  ItemsSource="{Binding Bindings}"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="False"
+                  CanUserDeleteRows="False"
+                  IsReadOnly="False"
+                  SelectionMode="Single"
+                  SelectionUnit="FullRow">
+            <DataGrid.Columns>
+                <DataGridCheckBoxColumn Header="On" Binding="{Binding IsEnabled}" Width="45"/>
+                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="150"/>
+                <DataGridTextColumn Header="Selector" Binding="{Binding Selector}" Width="160"/>
+                <DataGridComboBoxColumn Header="Event"
+                                        SelectedItemBinding="{Binding EventType}"
+                                        ItemsSource="{StaticResource EventTypes}"
+                                        Width="90"/>
+                <DataGridTextColumn Header="Property" Binding="{Binding PropertyName}" Width="100"/>
+                <DataGridTextColumn Header="Contains" Binding="{Binding PropertyValue}" Width="120"/>
+                <DataGridComboBoxColumn Header="Action Type"
+                                        SelectedItemBinding="{Binding ActionType}"
+                                        ItemsSource="{StaticResource ActionTypes}"
+                                        Width="150"/>
+                <DataGridTextColumn Header="Action / Target"
+                                    Binding="{Binding ActionTarget}"
+                                    Width="220"/>
+                <DataGridTextColumn Header="Argument / JS"
+                                    Binding="{Binding ActionArgument}"
+                                    Width="*"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</Window>
