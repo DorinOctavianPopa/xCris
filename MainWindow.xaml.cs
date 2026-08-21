@@ -211,11 +211,13 @@ namespace xCris
             if (_sidePanelVisible)
             {
                 SidePanelColumn.Width = new GridLength(_sidePanelWidth);
+                SidePanelSplitter.Visibility = Visibility.Visible;
             }
             else
             {
                 _sidePanelWidth = SidePanelColumn.ActualWidth;
                 SidePanelColumn.Width = new GridLength(0);
+                SidePanelSplitter.Visibility = Visibility.Collapsed;
             }
         }
 
@@ -262,41 +264,103 @@ namespace xCris
 
         private async void BtnQuery_Click(object sender, RoutedEventArgs e)
         {
-            if (!_webViewReady) return;
+            if (!_webViewReady)
+            {
+                SetStatus("WebView not ready yet");
+                return;
+            }
 
             var selector = TxtSelector.Text.Trim();
-            if (string.IsNullOrEmpty(selector)) return;
+            if (string.IsNullOrEmpty(selector))
+            {
+                SetStatus("Please enter a selector");
+                return;
+            }
 
             // Escape selector for safe use in JSON string (only escaping backslash and single-quote)
             var safeSel = selector.Replace("\\", "\\\\").Replace("'", "\\'");
             var js = $@"
 (function() {{
-    var nodes = document.querySelectorAll('{safeSel}');
-    var result = [];
-    nodes.forEach(function(n) {{
-        result.push({{
-            tagName:    n.tagName || '',
-            id:         n.id || '',
-            className:  n.className || '',
-            innerText:  (n.innerText || '').substring(0, 60),
-            innerHTML:  (n.innerHTML || '').substring(0, 120),
-            selector:   (n.id ? '#' + n.id : (n.className ? '.' + n.className.split(' ').join('.') : n.tagName.toLowerCase()))
+    try {{
+        var nodes = document.querySelectorAll('{safeSel}');
+        var result = [];
+        nodes.forEach(function(n) {{
+            // Get className as string (handles both HTML and SVG elements)
+            var classNameStr = '';
+            if (n.className) {{
+                if (typeof n.className === 'string') {{
+                    classNameStr = n.className;
+                }} else if (n.className.baseVal !== undefined) {{
+                    // SVG element with SVGAnimatedString
+                    classNameStr = n.className.baseVal;
+                }} else {{
+                    classNameStr = String(n.className);
+                }}
+            }}
+
+            // Build selector safely
+            var selectorStr = '';
+            if (n.id) {{
+                selectorStr = '#' + n.id;
+            }} else if (classNameStr) {{
+                selectorStr = '.' + classNameStr.split(' ').filter(function(c) {{ return c; }}).join('.');
+            }} else {{
+                selectorStr = (n.tagName || '').toLowerCase();
+            }}
+
+            result.push({{
+                tagName:    n.tagName || '',
+                id:         n.id || '',
+                className:  classNameStr,
+                innerText:  (n.innerText || n.textContent || '').substring(0, 60),
+                innerHTML:  (n.innerHTML || '').substring(0, 120),
+                selector:   selectorStr
+            }});
         }});
-    }});
-    return JSON.stringify(result);
+        return JSON.stringify(result);
+    }} catch(err) {{
+        return JSON.stringify({{ error: err.toString() }});
+    }}
 }})()";
 
             var json = await ExecuteScriptSafeAsync(js);
-            if (json is null) return;
+            if (json is null)
+            {
+                SetStatus("Script execution failed");
+                return;
+            }
 
-            // Unwrap outer quotes added by ExecuteScript
-            var unescaped = UnwrapJsonString(json);
+            // ExecuteScriptAsync returns JSON-wrapped strings; deserialize to unwrap properly
+            string unescaped;
+            try
+            {
+                unescaped = JsonSerializer.Deserialize<string>(json) ?? "";
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"Failed to unwrap result: {ex.Message}");
+                return;
+            }
 
             _elements.Clear();
             try
             {
+                // Check if the result is an error
+                if (unescaped.Contains("\"error\""))
+                {
+                    var errorObj = JsonSerializer.Deserialize<JsonElement>(unescaped);
+                    var errorMsg = errorObj.GetProperty("error").GetString() ?? "Unknown error";
+                    SetStatus($"Query error: {errorMsg}");
+                    return;
+                }
+
                 var items = JsonSerializer.Deserialize<List<JsonElement>>(unescaped);
-                if (items is null) return;
+                if (items is null)
+                {
+                    SetStatus("Failed to parse results");
+                    return;
+                }
+
                 foreach (var item in items)
                 {
                     _elements.Add(new DomElement
@@ -310,7 +374,12 @@ namespace xCris
                     });
                 }
             }
-            catch { /* ignore parse errors */ }
+            catch (Exception ex)
+            {
+                SetStatus($"Parse error: {ex.Message}");
+                AppendConsole($"[ERROR] Query parsing failed: {ex.Message}\nJSON: {unescaped}\n");
+                return;
+            }
 
             SetStatus($"Found {_elements.Count} element(s) matching '{selector}'");
         }
@@ -683,12 +752,13 @@ namespace xCris
             if (raw.StartsWith('"') && raw.EndsWith('"'))
             {
                 var inner = raw[1..^1];
+                // Process \\\\ first, before other escape sequences, to avoid creating invalid escapes
                 return inner
+                    .Replace("\\\\", "\\")
                     .Replace("\\n", "\n")
                     .Replace("\\r", "\r")
                     .Replace("\\t", "\t")
-                    .Replace("\\\"", "\"")
-                    .Replace("\\\\", "\\");
+                    .Replace("\\\"", "\"");
             }
             return raw;
         }

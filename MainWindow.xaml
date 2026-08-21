@@ -68,7 +68,7 @@
             <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
             <Setter Property="BorderBrush" Value="{StaticResource BorderColor}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="Padding" Value="1"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="CaretBrush" Value="{StaticResource Accent}"/>
             <Setter Property="SelectionBrush" Value="{StaticResource Accent}"/>
@@ -157,6 +157,18 @@
             </Style.Triggers>
         </Style>
 
+        <!-- GridViewColumnHeader style -->
+        <Style TargetType="GridViewColumnHeader">
+            <Setter Property="Background" Value="{StaticResource BgSurface}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderColor}"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        </Style>
+
         <!-- GridSplitter style -->
         <Style TargetType="GridSplitter">
             <Setter Property="Background" Value="{StaticResource BorderColor}"/>
@@ -234,6 +246,7 @@
                              Height="30" Margin="8,0"
                              KeyDown="TxtAddress_KeyDown"
                              VerticalContentAlignment="Center"
+                             
                              Text="https://www.google.com"/>
 
                     <!-- Loading indicator -->
@@ -279,7 +292,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" MinWidth="400"/>
                 <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition x:Name="SidePanelColumn" Width="420" MinWidth="300"/>
+                <ColumnDefinition x:Name="SidePanelColumn" Width="420"/>
             </Grid.ColumnDefinitions>
 
             <!-- WebView2 container -->
@@ -291,7 +304,7 @@
             </Border>
 
             <!-- Splitter -->
-            <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Center"
+            <GridSplitter x:Name="SidePanelSplitter" Grid.Column="1" Width="4" HorizontalAlignment="Center"
                           VerticalAlignment="Stretch" ResizeBehavior="PreviousAndNext"/>
 
             <!-- ===== SIDE PANEL ===== -->
