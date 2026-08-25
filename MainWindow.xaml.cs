@@ -14,7 +14,7 @@ namespace xCris
     public partial class MainWindow : Window
     {
         // ── State ──────────────────────────────────────────────────────────────
-        private const string HomeUrl = "https://www.google.com";
+        private string HomeUrl => _browserSettings.HomePageUrl;
         private bool _sidePanelVisible = true;
         private double _sidePanelWidth = 420;
         private int _eventCount;
@@ -23,6 +23,7 @@ namespace xCris
         private readonly ObservableCollection<PageEvent> _pageEvents = new();
         private readonly ObservableCollection<AutomationBinding> _automationBindings = new();
         private DomElement? _selectedElement;
+        private BrowserSettings _browserSettings = new();
 
         // Tracks tabs: key = button, value = (url, title)
         private readonly List<TabEntry> _tabs = new();
@@ -47,6 +48,7 @@ namespace xCris
             InitializeComponent();
             LvElements.ItemsSource = _elements;
             LvEvents.ItemsSource = _pageEvents;
+            LoadBrowserSettings();
             LoadAutomationBindings();
 
             // Keyboard shortcuts
@@ -67,6 +69,8 @@ namespace xCris
             if (!e.IsSuccess) return;
 
             _webViewReady = true;
+
+            ApplyBrowserSettings(_browserSettings);
 
             // Wire up the message channel for page→host events
             WebView.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
@@ -240,6 +244,25 @@ namespace xCris
 
             if (_webViewReady)
                 await InjectEventListenersAsync();
+        }
+
+        private void BtnSettings_Click(object sender, RoutedEventArgs e)
+        {
+            var window = new SettingsWindow(_browserSettings)
+            {
+                Owner = this
+            };
+
+            if (window.ShowDialog() != true)
+                return;
+
+            _browserSettings = window.SavedSettings;
+            SaveBrowserSettings();
+
+            if (_webViewReady)
+                ApplyBrowserSettings(_browserSettings);
+
+            SetStatus("Browser settings saved.");
         }
 
         // ── Keyboard shortcuts ─────────────────────────────────────────────────
@@ -954,6 +977,76 @@ namespace xCris
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "xCris",
                 "automation-bindings.json");
+
+        // ── Browser settings ───────────────────────────────────────────────────
+        private void ApplyBrowserSettings(BrowserSettings s)
+        {
+            if (!_webViewReady) return;
+
+            var settings = WebView.CoreWebView2.Settings;
+
+            settings.IsScriptEnabled                  = s.IsScriptEnabled;
+            settings.AreDefaultScriptDialogsEnabled   = s.AreDefaultScriptDialogsEnabled;
+            settings.IsWebMessageEnabled              = s.IsWebMessageEnabled;
+            settings.IsPasswordAutosaveEnabled        = s.IsPasswordAutosaveEnabled;
+            settings.IsGeneralAutofillEnabled         = s.IsGeneralAutofillEnabled;
+
+            settings.IsStatusBarEnabled               = s.IsStatusBarEnabled;
+            settings.IsZoomControlEnabled             = s.IsZoomControlEnabled;
+            settings.IsBuiltInErrorPageEnabled        = s.IsBuiltInErrorPageEnabled;
+
+            settings.AreDevToolsEnabled               = s.AreDevToolsEnabled;
+            settings.AreDefaultContextMenusEnabled    = s.AreDefaultContextMenusEnabled;
+            settings.AreBrowserAcceleratorKeysEnabled = s.AreBrowserAcceleratorKeysEnabled;
+
+            if (!string.IsNullOrWhiteSpace(s.UserAgent))
+                settings.UserAgent = s.UserAgent;
+
+            WebView.ZoomFactor = Math.Clamp(s.DefaultZoomFactor, 0.25, 5.0);
+        }
+
+        private void LoadBrowserSettings()
+        {
+            try
+            {
+                var path = GetBrowserSettingsPath();
+                if (!File.Exists(path))
+                    return;
+
+                var json = File.ReadAllText(path);
+                var loaded = System.Text.Json.JsonSerializer.Deserialize<BrowserSettings>(json);
+                if (loaded is not null)
+                    _browserSettings = loaded;
+            }
+            catch
+            {
+                // Ignore malformed settings files; fall back to defaults
+            }
+        }
+
+        private void SaveBrowserSettings()
+        {
+            try
+            {
+                var path = GetBrowserSettingsPath();
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                var json = System.Text.Json.JsonSerializer.Serialize(_browserSettings, new System.Text.Json.JsonSerializerOptions
+                {
+                    WriteIndented = true
+                });
+                File.WriteAllText(path, json);
+            }
+            catch (Exception ex)
+            {
+                AppendConsole($"[SETTINGS] Failed to save settings: {ex.Message}\n");
+            }
+        }
+
+        private static string GetBrowserSettingsPath() =>
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "xCris",
+                "browser-settings.json");
 
         private void SetStatus(string message) => TxtStatus.Text = message;
     }
