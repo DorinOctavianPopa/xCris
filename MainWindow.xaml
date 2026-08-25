@@ -227,6 +227,7 @@
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
                     <!-- Nav buttons -->
@@ -279,8 +280,13 @@
                             Click="BtnAutomationConfig_Click"
                             ToolTip="Open automation configuration"/>
 
+                    <Button Grid.Column="4" Content="⚙ Settings" Style="{StaticResource NavButton}"
+                            Height="30" Padding="10,4" Margin="4,0,0,0"
+                            Click="BtnSettings_Click"
+                            ToolTip="Open browser settings"/>
+
                     <!-- Side panel toggle -->
-                    <Button Grid.Column="4" Content="⚙ DOM" Style="{StaticResource AccentButton}"
+                    <Button Grid.Column="5" Content="⚙ DOM" Style="{StaticResource AccentButton}"
                             Height="30" Padding="10,4" Click="BtnTogglePanel_Click"
                             ToolTip="Toggle DOM Control Panel (F12)"/>
                 </Grid>
