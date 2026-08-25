@@ -599,7 +599,7 @@ namespace xCris
     }});
 }})()";
 
-            await ExecuteScriptSafeAsync(js);
+            var rez = await ExecuteScriptSafeAsync(js);
         }
 
         private List<string> BuildEnabledEventsList()
