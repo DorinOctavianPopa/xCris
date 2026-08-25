@@ -1,0 +1,226 @@
+<Window x:Class="xCris.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Browser Settings"
+        Height="600"
+        Width="560"
+        MinHeight="500"
+        MinWidth="480"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip">
+
+    <Window.Resources>
+        <SolidColorBrush x:Key="BgBase"      Color="#1E1E2E"/>
+        <SolidColorBrush x:Key="BgSurface"   Color="#27273A"/>
+        <SolidColorBrush x:Key="BgOverlay"   Color="#2E2E42"/>
+        <SolidColorBrush x:Key="Accent"      Color="#7C6AF7"/>
+        <SolidColorBrush x:Key="TextPrimary" Color="#CDD6F4"/>
+        <SolidColorBrush x:Key="TextMuted"   Color="#6C7086"/>
+        <SolidColorBrush x:Key="BorderColor" Color="#3E3E5C"/>
+
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+        </Style>
+
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="Margin" Value="0,4,0,4"/>
+        </Style>
+
+        <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource Accent}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Margin" Value="0,12,0,4"/>
+        </Style>
+
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextMuted}"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
+
+        <Style x:Key="SettingsTextBox" TargetType="TextBox">
+            <Setter Property="Background" Value="{StaticResource BgOverlay}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="CaretBrush" Value="{StaticResource Accent}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4">
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ActionButton" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource BgOverlay}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="16,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#3E3E5C"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource Accent}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SaveButton" TargetType="Button" BasedOn="{StaticResource ActionButton}">
+            <Setter Property="Background" Value="{StaticResource Accent}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+    </Window.Resources>
+
+    <Border Background="{StaticResource BgBase}">
+        <DockPanel Margin="20">
+
+            <!-- Title -->
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                <TextBlock FontSize="20" FontWeight="Bold" Text="Browser Settings"
+                           Foreground="{StaticResource Accent}"/>
+                <TextBlock Margin="0,4,0,0" TextWrapping="Wrap" FontSize="12"
+                           Foreground="{StaticResource TextMuted}">
+                    Configure WebView2 browser behaviour. Changes take effect immediately after saving.
+                </TextBlock>
+                <Separator Margin="0,10,0,0" Background="{StaticResource BorderColor}"/>
+            </StackPanel>
+
+            <!-- Bottom buttons -->
+            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
+                        HorizontalAlignment="Right" Margin="0,12,0,0">
+                <Button Width="110" Margin="0,0,8,0" Style="{StaticResource SaveButton}"
+                        Click="BtnSave_Click">Save</Button>
+                <Button Width="88" Style="{StaticResource ActionButton}"
+                        IsCancel="True">Cancel</Button>
+            </StackPanel>
+
+            <!-- Scrollable content -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
+
+                    <!-- ── General ─────────────────────────────────────── -->
+                    <TextBlock Style="{StaticResource SectionHeader}" Text="⌂  General"/>
+
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Style="{StaticResource FieldLabel}" Text="Home page URL"/>
+                        <TextBox x:Name="TxtHomePageUrl" Grid.Column="1"
+                                 Style="{StaticResource SettingsTextBox}" Height="28"/>
+                    </Grid>
+
+                    <Separator Margin="0,10,0,0" Background="{StaticResource BorderColor}"/>
+
+                    <!-- ── Privacy & Security ─────────────────────────── -->
+                    <TextBlock Style="{StaticResource SectionHeader}" Text="🔒  Privacy &amp; Security"/>
+
+                    <CheckBox x:Name="ChkIsScriptEnabled" Content="Enable JavaScript"
+                              ToolTip="Allow web pages to run JavaScript (required for most modern sites)."/>
+                    <CheckBox x:Name="ChkAreDefaultScriptDialogsEnabled"
+                              Content="Allow script dialogs (alert / confirm / prompt)"
+                              ToolTip="Show native browser dialogs triggered by JavaScript."/>
+                    <CheckBox x:Name="ChkIsWebMessageEnabled"
+                              Content="Enable web messages (required for Automation feature)"
+                              ToolTip="Allow the page to communicate with the host app. Disabling this will break the Automation and Events features."/>
+                    <CheckBox x:Name="ChkIsPasswordAutosaveEnabled"
+                              Content="Save passwords"
+                              ToolTip="Offer to save and auto-fill passwords."/>
+                    <CheckBox x:Name="ChkIsGeneralAutofillEnabled"
+                              Content="Enable form autofill"
+                              ToolTip="Auto-fill form fields such as addresses."/>
+
+                    <Separator Margin="0,10,0,0" Background="{StaticResource BorderColor}"/>
+
+                    <!-- ── Appearance ─────────────────────────────────── -->
+                    <TextBlock Style="{StaticResource SectionHeader}" Text="🎨  Appearance"/>
+
+                    <CheckBox x:Name="ChkIsStatusBarEnabled"
+                              Content="Show status bar"
+                              ToolTip="Display the link hover / loading status bar at the bottom of the WebView."/>
+                    <CheckBox x:Name="ChkIsZoomControlEnabled"
+                              Content="Enable zoom controls (Ctrl +/−)"
+                              ToolTip="Allow keyboard and touch zoom gestures inside the WebView."/>
+                    <CheckBox x:Name="ChkIsBuiltInErrorPageEnabled"
+                              Content="Show built-in error pages"
+                              ToolTip="Display the browser's built-in error page when navigation fails."/>
+
+                    <Grid Margin="0,6,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120"/>
+                            <ColumnDefinition Width="80"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Style="{StaticResource FieldLabel}" Text="Default zoom (%)"/>
+                        <TextBox x:Name="TxtDefaultZoom" Grid.Column="1"
+                                 Style="{StaticResource SettingsTextBox}" Height="28"
+                                 ToolTip="Default zoom factor as a percentage, e.g. 100 = normal, 125 = 125%."/>
+                        <TextBlock Grid.Column="2" Style="{StaticResource FieldLabel}" Margin="8,0,0,0"
+                                   Text="(e.g. 100 = normal)"/>
+                    </Grid>
+
+                    <Separator Margin="0,10,0,0" Background="{StaticResource BorderColor}"/>
+
+                    <!-- ── Developer ──────────────────────────────────── -->
+                    <TextBlock Style="{StaticResource SectionHeader}" Text="🛠  Developer"/>
+
+                    <CheckBox x:Name="ChkAreDevToolsEnabled"
+                              Content="Enable developer tools (F12)"
+                              ToolTip="Allow the user to open DevTools with F12 or via the context menu."/>
+                    <CheckBox x:Name="ChkAreDefaultContextMenusEnabled"
+                              Content="Show default context menus"
+                              ToolTip="Display the browser's built-in right-click context menu."/>
+                    <CheckBox x:Name="ChkAreBrowserAcceleratorKeysEnabled"
+                              Content="Enable browser accelerator keys (Ctrl+F, Ctrl+P, …)"
+                              ToolTip="Allow built-in browser keyboard shortcuts like find, print, and zoom."/>
+
+                    <Separator Margin="0,10,0,0" Background="{StaticResource BorderColor}"/>
+
+                    <!-- ── Advanced ───────────────────────────────────── -->
+                    <TextBlock Style="{StaticResource SectionHeader}" Text="⚙  Advanced"/>
+
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Style="{StaticResource FieldLabel}" Text="User-Agent string"/>
+                        <TextBox x:Name="TxtUserAgent" Grid.Column="1"
+                                 Style="{StaticResource SettingsTextBox}" Height="28"
+                                 ToolTip="Override the User-Agent header sent by WebView2. Leave empty to use the default."/>
+                    </Grid>
+
+                </StackPanel>
+            </ScrollViewer>
+        </DockPanel>
+    </Border>
+</Window>
